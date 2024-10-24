@@ -3,15 +3,34 @@ import { EMsgTo, EMsgType, IMockInterceptorMsg } from "./types/msg";
 
 const originXHR = window.XMLHttpRequest;
 
-const modifyResponse = (xhr: XMLHttpRequest) => {
-  // @ts-ignore
+interface openArgs {
+  method: string;
+  url: string | URL;
+}
+
+interface IXHRProxy extends XMLHttpRequest {
+  response: any;
+  responseText: string;
+  status: number;
+  statusText: string;
+  openArgs?: openArgs;
+}
+
+const modifyResponse = (xhr: IXHRProxy) => {
+  if (!xhr.openArgs) return;
+  const { url } = xhr.openArgs;
+  const targetUrl = url instanceof URL ? url.href : url;
+  if (!/baidu/.test(targetUrl)) return;
   xhr.response = 'modify-response';
+  xhr.responseText = 'modify-response';
+  xhr.status = 200;
+  xhr.statusText = 'OK';
 }
 
 const XHRProxy = new Proxy(originXHR, {
   construct(target, args) {
     // @ts-ignore
-    const xhr = new target(...args);
+    const xhr: IXHRProxy = new target(...args);
     // 由于原生属性readonly，用新属性替代原生属性
     const readonlyProps = ['response', 'responseText', 'status', 'statusText'];
     const proxyXhr = new Proxy(xhr, {
@@ -20,7 +39,21 @@ const XHRProxy = new Proxy(originXHR, {
           return Reflect.get(target, `_${prop}`);
         }
         const value = Reflect.get(target, prop);
-        return typeof value === 'function' ? value.bind(target) : value;
+        if (typeof value !== 'function') return value;
+        switch (prop) {
+          case 'open':
+            const proxyOpen = (method: string, url: string | URL) => {
+              xhr.openArgs = {
+                method,
+                url,
+              }
+              value?.apply(target, [method, url]);
+            }
+            return proxyOpen.bind(target);
+          default:
+            break;
+        }
+        return value.bind(target);
       },
       // @ts-ignore
       set(target, prop, newValue) {
@@ -60,20 +93,21 @@ class MockInterceptor {
 
 const instance = new MockInterceptor();
 
-const test = () => {
-  Object.defineProperty(window, 'XMLHttpRequest', {
-    value: XHRProxy,
-    writable: false, // 禁止修改
-    configurable: false // 禁止删除或重新定义
-  });
+// const test = () => {
+//   Object.defineProperty(window, 'XMLHttpRequest', {
+//     value: XHRProxy,
+//     writable: false, // 禁止修改
+//     configurable: false // 禁止删除或重新定义
+//   });
 
-  const xhr = new window.XMLHttpRequest();
-  xhr.open('get', 'http://127.0.0.1:5500');
-  xhr.send();
-  xhr.onreadystatechange = () => {
-    console.log('onreadystatechange example:', xhr.response);
-  }
-}
+//   const xhr = new window.XMLHttpRequest();
+//   xhr.open('get', 'http://www.baidu.com/');
+//   xhr.send();
+//   xhr.onreadystatechange = () => {
+//     const { response, responseText, status, statusText } = xhr;
+//     console.log('onreadystatechange example:', response, responseText, status, statusText);
+//   }
+// }
 
 window.addEventListener('message', (event) => {
   const { type, to, isActive, rules }: IMockInterceptorMsg = event.data;
@@ -91,7 +125,5 @@ window.addEventListener('message', (event) => {
   } else {
     window.XMLHttpRequest = originXHR;
   }
-
-  test();
 });
 

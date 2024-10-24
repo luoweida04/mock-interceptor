@@ -34,7 +34,7 @@ const INTERCEPTOR = {
   /**
    * 拦截器规则
   */
-  RULES: 'interceptorRules',
+  RULES: 'mockRules',
   /**
    * 拦截器脚本
   */

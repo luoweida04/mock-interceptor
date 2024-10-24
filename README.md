@@ -11,6 +11,9 @@ pageScript负责实现拦截逻辑，包括ajax、fetch
 
 
 ## 开发
+
+
+### 主体逻辑
 service-worker加载content.js，content.js在有新标签页打开且点击了插件的时候执行
 content.js向页面插入pageScript脚本，且向它发送信息，包括规则配置、开关等
 用postmessage向pageScript通信
@@ -39,3 +42,7 @@ film.qq.video.com aegis在每次页面可见都会修改window.XMLHttpRequest，
   //     "match_about_blank": true
   //   }
   // ],
+
+### 本地开发
+pnpm run dev
+访问： http://127.0.0.1:5500/popup/index.html

@@ -3,6 +3,8 @@ import { dirname, resolve, basename, extname } from 'path';
 import { fileURLToPath } from 'url';
 import vue from '@vitejs/plugin-vue';
 import AutoImport from 'unplugin-auto-import/vite';
+import Components from 'unplugin-vue-components/vite';
+import { ElementPlusResolver } from 'unplugin-vue-components/resolvers';
 import VueDevTools from 'vite-plugin-vue-devtools';
 import copy from 'rollup-plugin-copy';
 
@@ -35,20 +37,6 @@ export default defineConfig({
           name: '[name].js',
           format: 'esm',
         },
-        // {
-        //   assetFileNames: 'ignore/[name]-[hash].[ext]', // 静态资源
-        //   chunkFileNames: 'ignore/js/[name]-[hash].js', // 代码分割中产生的 chunk
-        //   dir: 'dist/content',
-        //   name: '[name].js',
-        //   format: 'cjs',
-        //   entryFileNames: (chunkInfo) => {
-        //     const baseName = basename(chunkInfo.facadeModuleId!, extname(chunkInfo.facadeModuleId!))
-        //     if (baseName === 'content') {
-        //       return '[name].js';
-        //     }
-        //     return `ignore/${baseName}.js`;
-        //   },
-        // },
       ],
     }
   },
@@ -67,6 +55,10 @@ export default defineConfig({
     AutoImport({
       imports: ['vue'],
       dts: './src/types/auto-imports.d.ts',
+      resolvers: [ElementPlusResolver()],
+    }),
+    Components({
+      resolvers: [ElementPlusResolver()],
     }),
     VueDevTools(),
   ],
