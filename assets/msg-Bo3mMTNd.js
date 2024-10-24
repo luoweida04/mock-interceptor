@@ -1,0 +1,1 @@
+"use strict";var r=(t=>(t.MockInterceptor="MockInterceptor",t))(r||{}),e=(t=>(t.MockInterceptor="MockInterceptor",t.Content="Content",t.Background="Background",t.Client="Client",t))(e||{});exports.EMsgTo=e;exports.EMsgType=r;
