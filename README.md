@@ -25,8 +25,19 @@ film.qq.video.com aegis在每次页面可见都会修改window.XMLHttpRequest，
 
 ## 功能：
 1、分组
-2、可配置等待其他脚本执行完成再加载mockInterceptor（让其他脚本先行修改xhr、fetch对象）
+- 组启用
+- 组更名
+- 不同组的规则重复匹配【取第一个匹配到的】
 
+2、可配置等待其他脚本执行完成再加载mockInterceptor（让其他脚本先行修改xhr、fetch对象），可能导致有些请求在加载之前的，无法拦截
+
+3、iframe
+
+4、自动获取接口列表
+
+5、关闭时不注入js
+
+6、默认200返回码，可修改
 
   // "content_scripts": [
   //   {

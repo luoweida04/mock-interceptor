@@ -28,13 +28,17 @@ export interface IRule {
 };
 
 /**
- * 用于chrome配置存储相关的
+ * chrome local keys
 */
 export enum INTERCEPTOR {
   /**
    * 是否启用拦截器
   */
   IS_ACTIVE = 'mockInterceptorActive',
+  /**
+   * 是否启用组
+  */
+  GROUPS_ACTIVE = 'groupsActive',
   /**
    * 拦截器规则
   */
@@ -45,7 +49,12 @@ export interface IGroups {
   [key: string]: IRule[];
 }
 
+export interface IGroupActive {
+  [key: string]: boolean;
+}
+
 export interface IMockSetting {
   [INTERCEPTOR.IS_ACTIVE]: boolean;
+  [INTERCEPTOR.GROUPS_ACTIVE]: IGroupActive;
   [INTERCEPTOR.RULES]: IGroups;
 }

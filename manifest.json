@@ -11,9 +11,9 @@
     "service_worker": "background/service-worker.js"
   },
   "permissions": [
+    "tabs",
     "storage",
-    "scripting",
-    "tabs"
+    "scripting"
   ],
   "host_permissions": [
     "http://*/",

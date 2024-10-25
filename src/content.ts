@@ -1,6 +1,3 @@
-
-interface IRule {};
-
 enum EMsgType {
   MockInterceptor = 'MockInterceptor',
 }
@@ -21,31 +18,39 @@ interface IContentMsg extends IBaseMsg {
   contentScriptLoaded: boolean,
 }
 
+/**
+ * 具体定义见types，content引入其他文件会报错
+*/
 interface IMockInterceptorMsg extends IBaseMsg {
   isActive: boolean,
-  rules: IRule[],
+  groups: any,
+  groupsActive: any,
 }
 
-const INTERCEPTOR = {
+/**
+ * chrome local keys
+*/
+enum INTERCEPTOR {
   /**
    * 是否启用拦截器
   */
-  IS_ACTIVE: 'mockInterceptorActive',
+  IS_ACTIVE = 'mockInterceptorActive',
+  /**
+   * 是否启用组
+  */
+  GROUPS_ACTIVE = 'groupsActive',
   /**
    * 拦截器规则
   */
-  RULES: 'mockRules',
-  /**
-   * 拦截器脚本
-  */
-  SCRIPT: 'mockInterceptor',
+  RULES = 'mockRules',
 }
 
 const init = () => {
   window.onload = () => {
     console.log('load事件后插入mockInterceptor脚本');
     const script: HTMLScriptElement = document.createElement('script');
-    script.setAttribute('type', 'text/javascript');
+    // script.setAttribute('type', 'text/javascript');
+    script.setAttribute('type', 'module');
     script.setAttribute('src', chrome.runtime.getURL('mockInterceptor/mockInterceptor.js'));
     document.documentElement.appendChild(script);
     script.addEventListener('load', () => {
@@ -54,9 +59,10 @@ const init = () => {
           type: EMsgType.MockInterceptor,
           to: EMsgTo.MockInterceptor,
           isActive: res[INTERCEPTOR.IS_ACTIVE],
-          rules: res[INTERCEPTOR.RULES],
+          groups: res[INTERCEPTOR.RULES],
+          groupsActive: res[INTERCEPTOR.GROUPS_ACTIVE],
         } as IMockInterceptorMsg);
-      })
+      });
     });
     script.addEventListener('error', (event) => {
       alert(`mock拦截器加载出错: ${event}`);

@@ -1,4 +1,4 @@
-import { IRule } from "./interceptor";
+import { IGroupActive, IGroups } from "./interceptor";
 
 export enum EMsgType {
   MockInterceptor = 'MockInterceptor',
@@ -22,5 +22,6 @@ export interface IContentMsg extends IBaseMsg {
 
 export interface IMockInterceptorMsg extends IBaseMsg {
   isActive: boolean,
-  rules: IRule[],
+  groups: IGroups,
+  groupsActive: IGroupActive,
 }

@@ -5,5 +5,6 @@ import { INTERCEPTOR, IMockSetting } from "./types/interceptor"
 */
 export const DEFAULT_MOCK_SETTING: IMockSetting = {
   [INTERCEPTOR.IS_ACTIVE]: false,
-  [INTERCEPTOR.RULES]: [],
+  [INTERCEPTOR.GROUPS_ACTIVE]: {},
+  [INTERCEPTOR.RULES]: {},
 }

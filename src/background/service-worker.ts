@@ -29,32 +29,32 @@ chrome.scripting.getRegisteredContentScripts({ ids: [ROOT_SCRIPT.ID] }, async (s
   });
 });
 
-chrome.action.onClicked.addListener(() => {
-  console.log('chrome.action.onClick');
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    sendDataToTabContentJS(tabs[0], 'click');
-  })
-});
+// chrome.action.onClicked.addListener((tab: any) => {
+//   console.log('chrome.action.onClick', tab);
+//   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+//     sendDataToTabContentJS(tabs[0], 'click');
+//   });
+// });
 
 chrome.tabs.onRemoved.addListener(function (tabId: number | undefined) {
   console.log('chrome.tabs.onRemoved');
   tabIds.delete(tabId);
 });
 
-function sendDataToTabContentJS(tab: chrome.tabs.Tab, data: any) {
-  const tabId = tab.id;
-  if (!tabId) return;
-  if (tabIds.has(tabId)) {
-    chrome.tabs.sendMessage(tabId, data);
-    return;
-  }
-  chrome.scripting.executeScript({
-    target: { tabId, allFrames: true},
-    files: [ROOT_SCRIPT.JS_NAME],
-  }).then(() => {
-    chrome.tabs.sendMessage(tabId, data);
-  })
-}
+// function sendDataToTabContentJS(tab: chrome.tabs.Tab, data: any) {
+//   const tabId = tab.id;
+//   if (!tabId) return;
+//   if (tabIds.has(tabId)) {
+//     chrome.tabs.sendMessage(tabId, data);
+//     return;
+//   }
+//   chrome.scripting.executeScript({
+//     target: { tabId, allFrames: true},
+//     files: [ROOT_SCRIPT.JS_NAME],
+//   }).then(() => {
+//     chrome.tabs.sendMessage(tabId, data);
+//   })
+// }
 
 chrome.runtime.onMessage.addListener((msg: any): any => {
   console.log('service-worker接收到信息：', msg);
