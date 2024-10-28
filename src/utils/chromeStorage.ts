@@ -7,22 +7,25 @@ export class ChromeStorage {
 
   constructor() {}
 
-  async initData() {
-    await this.getData().then(res => {
-      console.log('ChromeStorage constructor', res);
-      this.isActive = !!res[INTERCEPTOR.IS_ACTIVE];
-      // local中没有初始化过数据
-      if (!res[INTERCEPTOR.GROUPS_ACTIVE]) {
-        this.groupsActive = {};
-        this.rulesCache = {};
-        this.initStorage();
-        return;
-      }
-      for(const groupName in res[INTERCEPTOR.RULES]) {
-        this.rulesCache[groupName] = [...res[INTERCEPTOR.RULES][groupName]];
-      }
-      this.groupsActive = {...res[INTERCEPTOR.GROUPS_ACTIVE]};
-    });
+  initData() {
+    return new Promise((resolve) => {
+      this.getData().then(res => {
+        console.log('ChromeStorage constructor', res);
+        this.isActive = !!res[INTERCEPTOR.IS_ACTIVE];
+        // local中没有初始化过数据
+        if (!res[INTERCEPTOR.GROUPS_ACTIVE]) {
+          this.groupsActive = {};
+          this.rulesCache = {};
+          this.initStorage();
+          return resolve(res);
+        }
+        for(const groupName in res[INTERCEPTOR.RULES]) {
+          this.rulesCache[groupName] = [...res[INTERCEPTOR.RULES][groupName]];
+        }
+        this.groupsActive = {...res[INTERCEPTOR.GROUPS_ACTIVE]};
+        resolve(res);
+      });
+    })
   }
 
   private async initStorage() {
@@ -39,18 +42,38 @@ export class ChromeStorage {
     });
   }
 
+  async updateRules() {
+    await chrome.storage?.local.set({
+      [INTERCEPTOR.RULES]: this.rulesCache,
+    });
+  }
+
   addGroup(groupName: string) {
     if (groupName in this.groupsActive) return false;
     this.groupsActive[groupName] = false;
     this.updateGroupsActive();
+    this.rulesCache[groupName] = [];
+    this.updateRules();
     return true;
   }
 
-  changeGroupName(oldGroupName: string, newGroupName: string) {
+  deleteGroup(groupName: string) {
+    if (!(groupName in this.groupsActive)) return false;
+    delete this.groupsActive[groupName];
+    this.updateGroupsActive();
+    delete this.rulesCache[groupName];
+    this.updateRules();
+    return true;
+  }
+
+  reviseGroupName(oldGroupName: string, newGroupName: string) {
     if (newGroupName in this.groupsActive) return false;
-    const groupRules = this.rulesCache[oldGroupName];
-    this.rulesCache[newGroupName] = groupRules;
+    this.groupsActive[newGroupName] = this.groupsActive[oldGroupName];
+    delete this.groupsActive[oldGroupName];
+    this.updateGroupsActive();
+    this.rulesCache[newGroupName] = this.rulesCache[oldGroupName];
     delete this.rulesCache[oldGroupName];
+    this.updateRules();
     return true;
   }
 
@@ -65,31 +88,12 @@ export class ChromeStorage {
     });
   }
 
-  private updateRules() {
-    chrome.storage?.local.set({
-      [INTERCEPTOR.RULES]: this.rulesCache,
-    });
-  }
-
-  modifyRule(rule: IRule) {
-    // @ts-ignore
-    let oldRule = this.rulesCache[rule.groupName].find(r => r.name === rule.name);
-    oldRule = {...rule};
-    this.updateRules();
-  }
-
-  addRule(rule: IRule) {
-    const { groupName, name } = rule;
-    if (this.rulesCache[groupName].find(r => r.name === name)) return false;
-    this.rulesCache[groupName].push(rule);
-    this.updateRules();
-  }
-
-  deleteRule(rule: IRule) {
-    const idx = this.rulesCache[rule.groupName].findIndex(r => r.name === rule.name);
-    if (idx === -1) return false;
-    this.rulesCache[rule.groupName].splice(idx, 1);
-    this.updateRules();
+  async modifyRule(rule: IRule) {
+    let oldRule = this.rulesCache[rule.groupName]?.find(r => r.name === rule.name);
+    // 新增规则
+    if (!oldRule) this.rulesCache[rule.groupName].push({...rule});
+    else oldRule = {...rule};
+    await this.updateRules();
   }
 
   getData(): Promise<IMockSetting> {
@@ -105,13 +109,21 @@ export class ChromeStorage {
   }
 }
 
+// 单例
 let instance: ChromeStorage | null = null;
+// 避免异步重复调用
+let initPromise: Promise<ChromeStorage> | null = null;
 
-async function getInstance(): Promise<ChromeStorage> {
-  if (instance) return instance;
-  instance = new ChromeStorage();
-  await instance.initData();
-  return instance;
+function getInstance(): Promise<ChromeStorage> {
+  if (initPromise) return initPromise;
+  initPromise = new Promise((resolve) => {
+    if (instance) return resolve(instance);
+    instance = new ChromeStorage();
+    instance.initData().then(() => {
+      resolve(instance!);
+    });
+  });
+  return initPromise;
 }
 
 export default getInstance;

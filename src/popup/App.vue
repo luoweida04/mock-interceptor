@@ -11,8 +11,8 @@ let dialogVisible = ref(false);
 let newGroupName = ref('');
 const groupsComp = ref<any>();
 
-onBeforeMount(async () => {
-  chromeStorage = await getChromeStorage();
+getChromeStorage().then(res => {
+  chromeStorage = res;
   const storageSetting = {
     [INTERCEPTOR.RULES]: chromeStorage.rulesCache,
     [INTERCEPTOR.GROUPS_ACTIVE]: chromeStorage.groupsActive,
@@ -22,14 +22,19 @@ onBeforeMount(async () => {
 });
 
 function switchChange(switchOn: any) {
-  console.log('switchChange', switchOn);
   chromeStorage.setIsActive(switchOn);
 }
 
 function confirmAddGroup() {
+  if (newGroupName.value === '') {
+    ElMessage({
+      message: '请输入组名',
+      type: 'info',
+    })
+    return;
+  }
   if (!chromeStorage.addGroup(newGroupName.value)) {
     ElMessage({
-      showClose: true,
       message: '该组已存在！',
       type: 'info',
     });
@@ -57,15 +62,12 @@ function confirmAddGroup() {
     <Groups
       v-show="setting[INTERCEPTOR.IS_ACTIVE]"
       ref="groupsComp"
-      :groups="setting[INTERCEPTOR.RULES]"
-      :groupsActive="setting[INTERCEPTOR.GROUPS_ACTIVE]"
-      :chromeStorage="chromeStorage"
     />
     <el-dialog
       v-model="dialogVisible"
       title="Add Rule Group"
     >
-      <el-input v-model="newGroupName" placeholder="rule group name"/>
+      <el-input v-model.trim="newGroupName" placeholder="rule group name"/>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">Cancel</el-button>

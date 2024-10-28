@@ -1,0 +1,24 @@
+{
+  "month_tabs": [
+    9,
+    10
+  ],
+  "events": [
+    {
+      "category": 2,
+      "type": 4,
+      "item_id": "",
+      "pic": "https://tv.puui.qpic.cn/tv/0/mz_tv_image_frontend_3c49a2-7_812350232_1727706714270214_pic_336x336/0",
+      "title": "2024.10.1",
+      "subtitle": "10月开放日·线下福利招募",
+      "button_text": "去回顾",
+      "to_attend_button_text": "去查看",
+      "button_url": "https://film.video.qq.com/magic-act/fuyopk16otyp6cxsword9c766a/index_599df.html?aid=V0%24%248%3A2010\u0026ovscroll=0\u0026page=599df\u0026ptag=ad.channel.calendar.2",
+      "is_attend": false,
+      "can_attend": false,
+      "magic_act_id": "",
+      "magic_module_id": ""
+    }
+  ],
+  "total": 1
+}

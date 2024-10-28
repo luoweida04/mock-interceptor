@@ -45,6 +45,13 @@ export default defineConfig({
       '@': resolve(__dirname, './src/'),
     },
   },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
+  },
   plugins: [
     vue(),
     copy({

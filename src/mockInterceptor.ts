@@ -31,8 +31,8 @@ const modifyResponse = (xhr: IXHRProxy) => {
   if (!xhr.openArgs || !xhr.mockMatchRule) return;
   // const { method, url } = xhr.openArgs;
   const { replaceReponse } = xhr.mockMatchRule;
-  // todo 检查json合法？
   if (!replaceReponse) return;
+
   xhr.response = replaceReponse;
   xhr.responseText = replaceReponse;
   xhr.status = 200;
@@ -65,7 +65,7 @@ function getWholeUrl(url: string | URL) {
     const host = window.location.host;
     const pageHref = window.location.href;
     if (url.startsWith('./') || url.startsWith('../')) url = new URL(url, pageHref).href;
-    else if (url.startsWith('//')) url = `${ proto }url`;
+    else if (url.startsWith('//')) url = `${ proto }${ url }`;
     else url = `${ proto }//${ host }${ url.startsWith('/') ? '' : '/'}${ url }`
   }
   return new URL(url);
@@ -80,7 +80,7 @@ const XHRProxy = new Proxy(originXHR, {
     const proxyXhr = new Proxy(xhr, {
       get(target, prop) {
         if (!(typeof prop === 'symbol') && readonlyProps.includes(prop)) {
-          return Reflect.get(target, `_${prop}`);
+          return Reflect.get(target, `_${prop}`) ?? Reflect.get(target, prop);
         }
         const value = Reflect.get(target, prop);
         if (typeof value !== 'function') return value;
@@ -96,10 +96,25 @@ const XHRProxy = new Proxy(originXHR, {
               value?.apply(target, [method, url]);
             }
             return proxyOpen.bind(target);
+          case 'send':
+            const proxySend = (...args: any) => {
+              value?.apply(target, args);
+            }
+            return proxySend.bind(target);
+          // case 'addEventListener':
+          //   const proxyAddEventListener = (...args: any) => {
+          //     const fun = args[1];
+          //     const args1Proxy = (...arg1ProxyArgs: any) => {
+          //       console.log('args1Proxy', xhr.openArgs, xhr);
+          //       fun.apply(target, arg1ProxyArgs);
+          //     }
+          //     args[1] = args1Proxy.bind(target);
+          //     value.apply(target, args);
+          //   }
+          //   return proxyAddEventListener.bind(target);
           default:
-            break;
+            return value.bind(target);
         }
-        return value.bind(target);
       },
       // @ts-ignore
       set(target, prop, newValue) {
@@ -111,17 +126,30 @@ const XHRProxy = new Proxy(originXHR, {
         switch (prop) {
           case 'onreadystatechange':
           case 'onload':
+          case 'onloadend':
             const originFunc = newValue;
             const proxyFunc = (...args: any) => {
-              if (prop === 'onload' || xhr.readyState === 4) modifyResponse(proxyXhr);
+              if ((prop === 'onreadystatechange' && xhr.readyState === 4) || prop !== 'onreadystatechange') modifyResponse(proxyXhr);
               originFunc?.apply(target, args);
               Reflect.set(target, prop, null);
             }
             Reflect.set(target, prop, proxyFunc);
             break;
           default:
-            Reflect.set(target, prop, newValue);
+            const val = typeof newValue === 'function' ? newValue.bind(target) : newValue;
+            Reflect.set(target, prop, val);
             break;
+          // default:
+          //   if (typeof newValue !== 'function')  {
+          //     Reflect.set(target, prop, newValue);
+          //     return true;
+          //   }
+          //   const defaultProxy = (...args: any) => {
+          //     console.log('set defaultProxy', args, prop, xhr.openArgs);
+          //     newValue.apply(target, args);
+          //   }
+          //   Reflect.set(target, prop, defaultProxy);
+          //   break;
         }
         return true;
       }
@@ -129,22 +157,6 @@ const XHRProxy = new Proxy(originXHR, {
     return proxyXhr;
   },
 });
-
-// const test = () => {
-//   Object.defineProperty(window, 'XMLHttpRequest', {
-//     value: XHRProxy,
-//     writable: false, // 禁止修改
-//     configurable: false // 禁止删除或重新定义
-//   });
-
-//   const xhr = new window.XMLHttpRequest();
-//   xhr.open('get', 'http://www.baidu.com/');
-//   xhr.send();
-//   xhr.onreadystatechange = () => {
-//     const { response, responseText, status, statusText } = xhr;
-//     console.log('onreadystatechange example:', response, responseText, status, statusText);
-//   }
-// }
 
 window.addEventListener('message', (event) => {
   const { type, to, isActive, groups, groupsActive }: IMockInterceptorMsg = event.data;
@@ -154,11 +166,11 @@ window.addEventListener('message', (event) => {
   instance.groupsActive = groupsActive;
 
   if (isActive) {
-    // 防止其他脚本冲突修改代理对象 如aegis等埋点监控sdk
+    // false防止其他脚本冲突修改代理对象 如aegis等埋点监控sdk
     Object.defineProperty(window, 'XMLHttpRequest', {
       value: XHRProxy,
       writable: false,
-      configurable: false
+      configurable: false,
     });
   } else {
     window.XMLHttpRequest = originXHR;
