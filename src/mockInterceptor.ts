@@ -1,7 +1,7 @@
 import { IGroupActive, IGroups, EMethod, IRule, EMode } from './types/interceptor';
 import { EMsgTo, EMsgType, IMockInterceptorMsg } from "./types/msg";
 
-const originXHR = window.XMLHttpRequest;
+const rawXHR = window.XMLHttpRequest;
 
 interface openArgs {
   method: string;
@@ -45,6 +45,7 @@ function matchRule({ requestMethod, requestUrl }: { requestMethod: string, reque
     const rules = instance.groups[groupName];
     const rule = rules.find(rule => {
       const { mode, method, url, isActive } = rule;
+      if (url.trim() === '') return false;
       const matchMethod = method === EMethod.ALL || requestMethod === method;
       const matchRequest = mode === EMode.REGEXP && new RegExp(url).test(requestUrl.href) ||
         mode === EMode.NORMAL && requestUrl.href.includes(url);
@@ -71,92 +72,80 @@ function getWholeUrl(url: string | URL) {
   return new URL(url);
 }
 
-const XHRProxy = new Proxy(originXHR, {
-  construct(target, args) {
-    // @ts-ignore
-    const xhr: IXHRProxy = new target(...args);
-    // 由于原生属性readonly，用新属性替代原生属性
-    const readonlyProps = ['response', 'responseText', 'status', 'statusText'];
-    const proxyXhr = new Proxy(xhr, {
-      get(target, prop) {
-        if (!(typeof prop === 'symbol') && readonlyProps.includes(prop)) {
-          return Reflect.get(target, `_${prop}`) ?? Reflect.get(target, prop);
-        }
-        const value = Reflect.get(target, prop);
-        if (typeof value !== 'function') return value;
-        switch (prop) {
-          case 'open':
-            const proxyOpen = (method: string, url: string | URL) => {
-              const requestUrl = getWholeUrl(url);
-              xhr.openArgs = {
-                method: method.toUpperCase(),
-                url: requestUrl,
-              };
-              xhr.mockMatchRule = matchRule({ requestMethod: method, requestUrl });
-              value?.apply(target, [method, url]);
-            }
-            return proxyOpen.bind(target);
-          case 'send':
-            const proxySend = (...args: any) => {
-              value?.apply(target, args);
-            }
-            return proxySend.bind(target);
-          // case 'addEventListener':
-          //   const proxyAddEventListener = (...args: any) => {
-          //     const fun = args[1];
-          //     const args1Proxy = (...arg1ProxyArgs: any) => {
-          //       console.log('args1Proxy', xhr.openArgs, xhr);
-          //       fun.apply(target, arg1ProxyArgs);
-          //     }
-          //     args[1] = args1Proxy.bind(target);
-          //     value.apply(target, args);
-          //   }
-          //   return proxyAddEventListener.bind(target);
-          default:
-            return value.bind(target);
-        }
-      },
+const setXHRProxy = (originXHR: any) => {
+  return new Proxy(originXHR, {
+    construct(target, args) {
       // @ts-ignore
-      set(target, prop, newValue) {
-        if (!(typeof prop === 'symbol') && readonlyProps.includes(prop)) {
-          Reflect.set(target, `_${prop}`, newValue);
+      const xhr: IXHRProxy = new target(...args);
+      // 由于原生属性readonly，用新属性替代原生属性
+      const readonlyProps = ['response', 'responseText', 'status', 'statusText'];
+      const proxyXhr = new Proxy(xhr, {
+        get(target, prop) {
+          if (!(typeof prop === 'symbol') && readonlyProps.includes(prop)) {
+            return Reflect.get(target, `_${prop}`) ?? Reflect.get(target, prop);
+          }
+          const value = Reflect.get(target, prop);
+          if (typeof value !== 'function') return value;
+          switch (prop) {
+            case 'open':
+              const proxyOpen = (method: string, url: string | URL) => {
+                const requestUrl = getWholeUrl(url);
+                xhr.openArgs = {
+                  method: method.toUpperCase(),
+                  url: requestUrl,
+                };
+                xhr.mockMatchRule = matchRule({ requestMethod: method, requestUrl });
+                console.log('raw open：', new rawXHR().open);
+                console.log('被代理的open：', value);
+                console.log('proxyOpen调用');
+                value?.apply(target, [method, url]);
+              }
+              return proxyOpen.bind(target);
+            case 'send':
+              const proxySend = (...args: any) => {
+                value?.apply(target, args);
+              }
+              return proxySend.bind(target);
+            default:
+              return value.bind(target);
+          }
+        },
+        // @ts-ignore
+        set(target, prop, newValue) {
+          if (!(typeof prop === 'symbol') && readonlyProps.includes(prop)) {
+            Reflect.set(target, `_${prop}`, newValue);
+            return true;
+          }
+  
+          switch (prop) {
+            case 'onreadystatechange':
+            case 'onload':
+            case 'onloadend':
+              const originFunc = newValue;
+              const proxyFunc = (...args: any) => {
+                if ((prop === 'onreadystatechange' && xhr.readyState === 4) || prop !== 'onreadystatechange') modifyResponse(proxyXhr);
+                originFunc?.apply(target, args);
+                Reflect.set(target, prop, null);
+              }
+              Reflect.set(target, prop, proxyFunc);
+              break;
+            default:
+              const val = typeof newValue === 'function' ? newValue.bind(target) : newValue;
+              Reflect.set(target, prop, val);
+              break;
+          }
           return true;
         }
-
-        switch (prop) {
-          case 'onreadystatechange':
-          case 'onload':
-          case 'onloadend':
-            const originFunc = newValue;
-            const proxyFunc = (...args: any) => {
-              if ((prop === 'onreadystatechange' && xhr.readyState === 4) || prop !== 'onreadystatechange') modifyResponse(proxyXhr);
-              originFunc?.apply(target, args);
-              Reflect.set(target, prop, null);
-            }
-            Reflect.set(target, prop, proxyFunc);
-            break;
-          default:
-            const val = typeof newValue === 'function' ? newValue.bind(target) : newValue;
-            Reflect.set(target, prop, val);
-            break;
-          // default:
-          //   if (typeof newValue !== 'function')  {
-          //     Reflect.set(target, prop, newValue);
-          //     return true;
-          //   }
-          //   const defaultProxy = (...args: any) => {
-          //     console.log('set defaultProxy', args, prop, xhr.openArgs);
-          //     newValue.apply(target, args);
-          //   }
-          //   Reflect.set(target, prop, defaultProxy);
-          //   break;
-        }
-        return true;
-      }
-    });
-    return proxyXhr;
-  },
-});
+      });
+      return proxyXhr;
+    },
+  });
+}
+let XHRProxy = setXHRProxy(rawXHR);
+/**
+ * 是否和其他脚本冲突过
+*/
+let conflict: boolean = false;
 
 window.addEventListener('message', (event) => {
   const { type, to, isActive, groups, groupsActive }: IMockInterceptorMsg = event.data;
@@ -166,14 +155,25 @@ window.addEventListener('message', (event) => {
   instance.groupsActive = groupsActive;
 
   if (isActive) {
-    // false防止其他脚本冲突修改代理对象 如aegis等埋点监控sdk
     Object.defineProperty(window, 'XMLHttpRequest', {
-      value: XHRProxy,
-      writable: false,
-      configurable: false,
+      configurable: true,
+      get () {
+        return XHRProxy;
+      },
+      // 其他脚本修改XMLHttpRequest，重新代理新xhr
+      set (customXHR) {
+        const descriptor = Object.getOwnPropertyDescriptor(window, 'XMLHttpRequest');
+        if (conflict || descriptor?.configurable === false || descriptor?.writable === false) {
+          XHRProxy = customXHR;
+          conflict = true;
+          alert('与页面其他脚本冲突');
+          return;
+        }
+        XHRProxy = setXHRProxy(customXHR);
+      }
     });
   } else {
-    window.XMLHttpRequest = originXHR;
+    window.XMLHttpRequest = rawXHR;
   }
 });
 

@@ -132,10 +132,6 @@ function editorContentChange({ responseJson, rule } : {
 }) {
   rule.replaceReponse = responseJson;
   chromeStorage.modifyRule(rule);
-  ElMessage({
-    message: 'response保存成功',
-    type: 'success'
-  });
 }
 
 async function save(rule: IRule) {

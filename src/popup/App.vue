@@ -67,7 +67,7 @@ function confirmAddGroup() {
       v-model="dialogVisible"
       title="Add Rule Group"
     >
-      <el-input v-model.trim="newGroupName" placeholder="rule group name"/>
+      <el-input v-model.trim="newGroupName" placeholder="group name"/>
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">Cancel</el-button>
